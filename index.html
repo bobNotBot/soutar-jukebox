@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>The Soutar Jukebox</title>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta
+      name="viewport"
+      content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0"
+    />
+    <link
+      id="favicon"
+      rel="icon"
+      href="https://cdn.glitch.com/8199502f-e529-4aa4-ba55-e8b0a29c18a5%2Ffavicon.png?v=1582805891417"
+      type="image/png"
+    />
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <div id="sorry">
+      <small><i>NB. Artificial Soutar will not work on some devices, sorry.</i></small>
+    </div>
+    <div id="header">
+      <h1>The Soutar Jukebox</h1>
+    </div>
+    
+    <div id="info-right">
+      <h2>Playlist</h2>
+      <ul class="playlist">
+        <li><button class="button">The Auld Man</button></li>
+        <li><button class="button">The Prodigy</button></li>
+        <li><button class="button">Yon Toun</button></li>
+        <li><button class="button">Cradle Sang</button></li>
+        <li><button class="button">The Stany Face</button></li>
+      </ul>
+    </div>
+    <div id="info-left">
+      <h2>Instructions</h2>
+      <p>Choose a poet</p>
+      <p>Click on a poem to hear Artificial Soutar speak.</p>
+      <p>Touch and move your fingers or click and move your mouse to rotate Soutar.</p>
+      <p>Use two fingers or the arrow keys to pan and zoom.</p>
+      <h2>Voices</h2>
+      <ul class="playlist">
+        <li><button class="button" id="stuart">Stuart</button></li>
+        <li><button class="button" id="heather">Heather</button></li>
+      </ul>
+    </div>
+    <audio id="audio" controls></audio>
+   
+<!--     javascript -->
+    <script type="module">
+      import * as THREE from "https://threejs.org/build/three.module.js";
+      import { GLTFLoader } from "https://threejs.org/examples/jsm/loaders/GLTFLoader.js";
+      import { OrbitControls } from "https://threejs.org/examples/jsm/controls/OrbitControls.js";
+      import { RGBELoader } from "https://threejs.org/examples/jsm/loaders/RGBELoader.js";
+
+      let scene,
+          camera,
+          renderer,
+          soutar,
+          soutarAnimation,
+          mixer,
+          talk,
+          controls,
+          clock,
+          voiceSelected,
+          poemSelected = 0,
+          speaking = false,
+          stuart = [],
+          heather = [],
+          btns = document.getElementsByTagName("button");
+        
+      const audio = document.getElementById("audio");
+
+      audio.addEventListener("playing", () => {
+        speaking = true;
+      });
+
+      audio.addEventListener("pause", () => {
+        speaking = false;
+      });
+
+      audio.addEventListener("ended", () => {
+        speaking = false;
+      });
+      
+      document.getElementById("stuart").addEventListener('click', () => {
+          poetEvent(stuart, 0);
+      });
+      
+      document.getElementById("stuart").addEventListener('touchstart', () => {
+         poetEvent(stuart, 0);
+      });
+      
+      document.getElementById("heather").addEventListener('click', () => {
+          poetEvent(heather, 1);
+      });
+      
+      document.getElementById("heather").addEventListener('touchstart', () => {
+          poetEvent(heather, 1);
+      });
+      
+      function init() {
+        loadPoems();
+        poetEvent(stuart, 0);
+        loadAudio(stuart[poemSelected]);
+        highlightPlaylistButton(stuart, 0);
+        scene = new THREE.Scene();
+        clock = new THREE.Clock();
+        initCamera();
+        initRenderer();
+        initLights();
+        initSoutar();
+        initOrbitControls();
+        initWorld();
+        document.getElementById("sorry").style.display = "none";
+        window.addEventListener("resize", onWindowResize, false);
+      }
+      
+      function poetEvent(poet, i) {
+        voiceSelected = poet.length + i;
+        initPlaylistButtons(poet);
+        highlightPoetButton(poet);
+        speaking = false;
+        loadAudio(poet[poemSelected]);
+      }
+      
+      function initPlaylistButtons(poet) {
+        for(let i = 0; i < poet.length; i++) {
+          btns[i].addEventListener("click", () => {
+            poemSelected = i;
+            loadAudio(poet[i]);
+            let p = audio.play();
+            if(p !== undefined){
+              p.then(() => {
+                highlightPlaylistButton(poet, i);
+              }).catch(err => {
+                //do nothing
+              });
+            }
+          });
+          btns[i].addEventListener("touchstart", () => {
+            poemSelected = i;
+            loadAudio(poet[i]);
+            let p = audio.play();
+            if(p !== undefined){
+              p.then(() => {
+                highlightPlaylistButton(i);
+              }).catch(err => {
+                //do nothing
+              });
+            }
+          });
+        }
+      }
+      
+      function loadAudio(poem) {
+        if (audio.canPlayType("audio/mpeg")) {
+            audio.type = "audio/mpeg";
+            audio.src = poem;
+            audio.load();
+        }
+      }
+      
+      function highlightPlaylistButton(poet, i) {
+        for(let j = 0; j < poet.length; j++) {
+          btns[j].style.opacity = 0.6;
+        }
+        btns[i].style.opacity = 1;
+      }
+      
+      function highlightPoetButton(poet) {
+        for(let i = poet.length; i < btns.length; i++) {
+          btns[i].style.opacity = 0.6;
+        }
+        btns[voiceSelected].style.opacity = 1;
+      }
+      
+      function loadPoems() {
+        stuart.push("https://cdn.glitch.com/51a42f6f-880f-4223-82c5-b33007db7b99%2FTheAuldMan.mp3?v=1585321506131");
+        stuart.push("https://cdn.glitch.com/51a42f6f-880f-4223-82c5-b33007db7b99%2FtheProdigy.mp3?v=1585659762879");
+        stuart.push("https://cdn.glitch.com/51a42f6f-880f-4223-82c5-b33007db7b99%2FyonTounStuart.mp3?v=1585764871071");
+        stuart.push("https://cdn.glitch.com/51a42f6f-880f-4223-82c5-b33007db7b99%2FcradlesangStuart.mp3?v=1586250949116");
+        stuart.push("https://cdn.glitch.com/51a42f6f-880f-4223-82c5-b33007db7b99%2FThaStanyFaceStuart.mp3?v=1586251320083");
+        heather.push("https://cdn.glitch.com/51a42f6f-880f-4223-82c5-b33007db7b99%2FtheAuldManHeather.mp3?v=1585739455864");
+        heather.push("https://cdn.glitch.com/51a42f6f-880f-4223-82c5-b33007db7b99%2FtheProdigyHeather.mp3?v=1585739473173");
+        heather.push("https://cdn.glitch.com/51a42f6f-880f-4223-82c5-b33007db7b99%2FyonTounHeather.mp3?v=1585764885033");
+        heather.push("https://cdn.glitch.com/51a42f6f-880f-4223-82c5-b33007db7b99%2FcradleSangHeather.mp3?v=1586250960692");
+        heather.push("https://cdn.glitch.com/51a42f6f-880f-4223-82c5-b33007db7b99%2FtheStanyFaceHeather.mp3?v=1586251292505");
+      }
+
+      function initCamera() {
+        camera = new THREE.PerspectiveCamera(
+          25,
+          window.innerWidth / window.innerHeight,
+          1,
+          20000
+        );
+        camera.position.set(0, 1, 20);
+      }
+
+      function initRenderer() {
+        renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 0.3;
+        renderer.outputEncoding = THREE.sRGBEncoding;
+        document.body.appendChild(renderer.domElement);
+      }
+
+      function initLights() {
+        const ambientLight = new THREE.AmbientLight(0xffffff);
+        scene.add(ambientLight);
+
+        const directionalLightKey = new THREE.DirectionalLight(0xffffff);
+        directionalLightKey.position.set(2, 5, 4);
+        scene.add(directionalLightKey);
+      }
+
+      function initSoutar() {
+        const loader = new GLTFLoader();
+        loader.load(
+          "https://cdn.glitch.com/51a42f6f-880f-4223-82c5-b33007db7b99%2FsoutarHead.glb?v=1585567320082",
+          gltf => {
+            soutar = gltf.scene;
+            // console.log(gltf);
+            soutar.scale.set(0.5, 0.5, 0.5);
+            soutar.position.y = -1.45;
+            soutar.position.x = -0.07;
+            soutar.position.z = -1;
+            mixer = new THREE.AnimationMixer(soutar);
+            // console.log(mixer);
+            soutarAnimation = mixer.clipAction(gltf.animations[0]);
+            // console.log(soutarAnimation);
+            scene.add(soutar);
+          }
+        );
+      }
+
+      function initOrbitControls() {
+        controls = new OrbitControls(camera, renderer.domElement);
+        controls.addEventListener("change", render);
+        controls.minDistance = 6;
+        controls.maxDistance = 10;
+        controls.target.set(0, 0, -1);
+        controls.update();
+      }
+
+      function initWorld() {
+        new RGBELoader()
+          .setDataType(THREE.UnsignedByteType)
+          .load(
+            "https://cdn.glitch.com/51a42f6f-880f-4223-82c5-b33007db7b99%2Ftiergarten_1k.hdr?v=1585319995310",
+            (texture, textureData) => {
+              // console.log( 'texture data:' + textureData );
+              // console.log( 'texture: ' + texture );
+
+              const pmremGenerator = new THREE.PMREMGenerator(renderer);
+              pmremGenerator.compileEquirectangularShader();
+
+              const envMap = pmremGenerator.fromEquirectangular(texture)
+                .texture;
+
+              scene.background = envMap;
+              scene.environment = envMap;
+
+              texture.dispose();
+              pmremGenerator.dispose();
+
+              render();
+            }
+          );
+      }
+
+      function render() {
+        renderer.render(scene, camera);
+      }
+
+      function onWindowResize() {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        render();
+      }
+
+      function animate() {
+        requestAnimationFrame(animate);
+        if (soutar) {
+          if (speaking) {
+            soutarAnimation.play();
+          } else {
+            soutarAnimation.stop();
+          }
+        }
+        let delta = clock.getDelta();
+        if (mixer) mixer.update(delta);
+        controls.update();
+        render();
+      }
+
+      init();
+      animate();
+    </script>
+  </body>
+</html>
